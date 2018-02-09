@@ -199,7 +199,7 @@ $(BUILD_DIR):
 # upload
 #######################################
 upload:
-	st-flash write build/test_all.bin 0x08000000
+	st-flash write build/test_motor_board.bin 0x08000000
 
 #######################################
 # clean up
