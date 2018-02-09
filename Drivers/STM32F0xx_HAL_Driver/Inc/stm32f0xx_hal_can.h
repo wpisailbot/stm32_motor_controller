@@ -280,6 +280,13 @@ typedef struct
   * @}
   */
 
+/** @defgroup CAN_debug_mode Debug mode for CAN system
+  * @ {
+**/
+#define CAN_MCR_DBF_Pos (16U)
+#define CAN_MCR_DBF_Msk (0x1U << CAN_MCR_DBF_Pos)
+#define CAN_MCR_DBF CAN_MCR_DBF_Msk  /*!< CAN Debug Freeze */
+
 /** @defgroup CAN_operating_mode CAN Operating Mode
   * @{
   */
