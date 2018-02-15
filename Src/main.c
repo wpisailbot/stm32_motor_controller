@@ -72,10 +72,19 @@ static void MX_TIM16_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
+/* Convenience function for setting the PWM rate */
+void setPWMValue(uint32_t value);
+
 /* Defines for the board's LEDs */
 #define LEDG_PIN GPIO_PIN_1
 #define LEDR_PIN GPIO_PIN_0
 #define LED_GPIO_PORT GPIOB
+
+/* Defines for the motor driver */
+#define MOTINA_PIN GPIO_PIN_7
+#define MOTENA_PIN GPIO_PIN_6
+#define MOTINB_PIN GPIO_PIN_4
+#define MOTENA_PIN GPIO_PIN_5
 
 int main(void)
 {
@@ -130,11 +139,18 @@ int main(void)
 
   /* Start the PWM Generator */
   status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+  HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
   while(1) {
-    if(status==HAL_OK) {
-      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
+    for (uint32_t val = 0x0001; val <= 0x2000; val+=0x0050) {
+      setPWMValue(val);
+      HAL_Delay(10);
     }
-    HAL_Delay(100);
+    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
+    for (uint32_t val = 0x2000; val > 0x0050; val-=0x0050) {
+      setPWMValue(val);
+      HAL_Delay(10);
+    }
   }
   while (1) {
     //Alternate some data packets for easier debugging of output
@@ -166,6 +182,25 @@ int main(void)
     //  HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     //}
     HAL_Delay(500);
+  }
+}
+
+void setPWMValue(uint32_t value) {
+  TIM_OC_InitTypeDef sConfigOC;
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = value;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim16, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+  //Terrible way to do this, but good enough without modifying the libs for now... TODO
+  if (HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1) != HAL_OK) {
+    _Error_Handler(__FILE__, __LINE__);
   }
 }
 
@@ -353,7 +388,7 @@ static void MX_TIM16_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0x1000;
+  sConfigOC.Pulse = 0x0800;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
