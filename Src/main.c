@@ -71,16 +71,11 @@ static void MX_CAN_Init(void);
 static void MX_TIM16_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                                
 
-/* USER CODE BEGIN PFP */
-/* Private function prototypes -----------------------------------------------*/
-
-/* USER CODE END PFP */
-
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
+/* Defines for the board's LEDs */
+#define LEDG_PIN GPIO_PIN_1
+#define LEDR_PIN GPIO_PIN_0
+#define LED_GPIO_PORT GPIOB
 
 int main(void)
 {
@@ -103,6 +98,67 @@ int main(void)
   /* Set the CAN hardware to continue while code is stopped in debug */
   __HAL_CAN_DBG_FREEZE(&hcan, DISABLE);
 
+  /* Clear the WKUI Bit */
+  volatile unsigned int * CAN_MSR = 0x40006404u;
+  *(CAN_MSR) = 3080l;
+
+  /* Setup some dummy data to send */
+  CanTxMsgTypeDef myData;
+  myData.Data[7] = 0xDE;
+  myData.Data[6] = 0xAD;
+  myData.Data[5] = 0xBE;
+  myData.Data[4] = 0xEF;
+  myData.Data[3] = 0x00;
+  myData.Data[2] = 0x00;
+  myData.Data[1] = 0xFF;
+  myData.Data[0] = 0xFF;
+  myData.DLC = 8;  //Maximum payload length
+
+  //Setup the Id info
+  myData.StdId = 0x000;
+  myData.ExtId = 0x01;
+  myData.IDE = CAN_ID_STD;
+  myData.RTR = CAN_RTR_DATA;
+
+  //Add the Tx data to the handler
+  hcan.pTxMsg = &myData;
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  HAL_StatusTypeDef status;
+  char toggle = 0;
+  while (1) {
+    //Alternate some data packets for easier debugging of output
+    if (toggle) {
+      myData.Data[7] = 0xFF;
+      myData.Data[6] = 0xFF;
+      myData.Data[5] = 0xFF;
+      myData.Data[4] = 0xFF;
+      myData.Data[3] = 0x00;
+      myData.Data[2] = 0x00;
+      myData.Data[1] = 0x00;
+      myData.Data[0] = 0x00;
+    } else {
+      myData.Data[7] = 0x00;
+      myData.Data[6] = 0x00;
+      myData.Data[5] = 0x00;
+      myData.Data[4] = 0x00;
+      myData.Data[3] = 0xFF;
+      myData.Data[2] = 0xFF;
+      myData.Data[1] = 0xFF;
+      myData.Data[0] = 0xFF;
+    }
+    toggle ^= 1;  //Flip the toggle
+
+    //Send some data on the CAN bus line
+    //HAL_OK HAL_ERROR HAL_TIMEOUT
+    status = HAL_CAN_Transmit(&hcan, 500);
+    if(status==HAL_OK) {
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    }
+    HAL_Delay(500);
+    
+  }
 }
 
 /** System Clock Configuration
@@ -213,13 +269,14 @@ static void MX_CAN_Init(void)
   hcan.Instance = CAN;
   hcan.Init.Prescaler = 16;
   hcan.Init.Mode = CAN_MODE_NORMAL;
+  //hcan.Init.Mode = CAN_MODE_LOOPBACK;
   hcan.Init.SJW = CAN_SJW_1TQ;
-  hcan.Init.BS1 = CAN_BS1_1TQ;
+  hcan.Init.BS1 = CAN_BS1_4TQ;
   hcan.Init.BS2 = CAN_BS2_1TQ;
   hcan.Init.TTCM = DISABLE;
   hcan.Init.ABOM = DISABLE;
   hcan.Init.AWUM = DISABLE;
-  hcan.Init.NART = DISABLE;
+  hcan.Init.NART = ENABLE;
   hcan.Init.RFLM = DISABLE;
   hcan.Init.TXFP = DISABLE;
   if (HAL_CAN_Init(&hcan) != HAL_OK)
