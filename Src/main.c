@@ -127,6 +127,15 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   HAL_StatusTypeDef status;
   char toggle = 0;
+
+  /* Start the PWM Generator */
+  status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+  while(1) {
+    if(status==HAL_OK) {
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    }
+    HAL_Delay(100);
+  }
   while (1) {
     //Alternate some data packets for easier debugging of output
     if (toggle) {
@@ -153,9 +162,9 @@ int main(void)
     //Send some data on the CAN bus line
     //HAL_OK HAL_ERROR HAL_TIMEOUT
     status = HAL_CAN_Transmit(&hcan, 500);
-    if(status==HAL_OK) {
-      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-    }
+    //if(status==HAL_OK) {
+    //  HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    //}
     HAL_Delay(500);
   }
 }
@@ -329,7 +338,7 @@ static void MX_TIM16_Init(void)
   htim16.Instance = TIM16;
   htim16.Init.Prescaler = 0;
   htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim16.Init.Period = 0;
+  htim16.Init.Period = 0x2000;
   htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim16.Init.RepetitionCounter = 0;
   htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -344,7 +353,7 @@ static void MX_TIM16_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 0x1000;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
