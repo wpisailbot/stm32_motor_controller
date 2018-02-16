@@ -138,20 +138,20 @@ int main(void)
   char toggle = 0;
 
   /* Start the PWM Generator */
-  /*status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+  status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
   HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
   while(1) {
     HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
     for (uint32_t val = 0x0001; val <= 0x2000; val+=0x0050) {
       setPWMValue(val);
-      HAL_Delay(10);
+      HAL_Delay(5);
     }
     HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
     for (uint32_t val = 0x2000; val > 0x0050; val-=0x0050) {
       setPWMValue(val);
-      HAL_Delay(10);
+      HAL_Delay(5);
     }
-  }*/
+  }
   while (1) {
     //Alternate some data packets for easier debugging of output
     /*if (toggle) {
