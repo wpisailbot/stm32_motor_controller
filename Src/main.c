@@ -113,14 +113,14 @@ int main(void)
 
   /* Setup some dummy data to send */
   CanTxMsgTypeDef myData;
-  myData.Data[7] = 0xDE;
-  myData.Data[6] = 0xAD;
-  myData.Data[5] = 0xBE;
-  myData.Data[4] = 0xEF;
-  myData.Data[3] = 0x00;
-  myData.Data[2] = 0x00;
-  myData.Data[1] = 0xFF;
-  myData.Data[0] = 0xFF;
+  myData.Data[7] = 0xAA;
+  myData.Data[6] = 0xAA;
+  myData.Data[5] = 0xAA;
+  myData.Data[4] = 0xAA;
+  myData.Data[3] = 0x55;
+  myData.Data[2] = 0x55;
+  myData.Data[1] = 0x55;
+  myData.Data[0] = 0x55;
   myData.DLC = 8;  //Maximum payload length
 
   //Setup the Id info
@@ -138,7 +138,7 @@ int main(void)
   char toggle = 0;
 
   /* Start the PWM Generator */
-  status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+  /*status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
   HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
   while(1) {
     HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
@@ -151,10 +151,10 @@ int main(void)
       setPWMValue(val);
       HAL_Delay(10);
     }
-  }
+  }*/
   while (1) {
     //Alternate some data packets for easier debugging of output
-    if (toggle) {
+    /*if (toggle) {
       myData.Data[7] = 0xFF;
       myData.Data[6] = 0xFF;
       myData.Data[5] = 0xFF;
@@ -172,15 +172,15 @@ int main(void)
       myData.Data[2] = 0xFF;
       myData.Data[1] = 0xFF;
       myData.Data[0] = 0xFF;
-    }
+    }*/
     toggle ^= 1;  //Flip the toggle
 
     //Send some data on the CAN bus line
     //HAL_OK HAL_ERROR HAL_TIMEOUT
     status = HAL_CAN_Transmit(&hcan, 500);
-    //if(status==HAL_OK) {
-    //  HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-    //}
+    if(status==HAL_OK) {
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    }
     HAL_Delay(500);
   }
 }
@@ -310,7 +310,7 @@ static void MX_CAN_Init(void)
 {
 
   hcan.Instance = CAN;
-  hcan.Init.Prescaler = 16;
+  hcan.Init.Prescaler = 11;
   hcan.Init.Mode = CAN_MODE_NORMAL;
   //hcan.Init.Mode = CAN_MODE_LOOPBACK;
   hcan.Init.SJW = CAN_SJW_1TQ;
