@@ -84,7 +84,7 @@ void setPWMValue(uint32_t value);
 #define MOTINA_PIN GPIO_PIN_7
 #define MOTENA_PIN GPIO_PIN_6
 #define MOTINB_PIN GPIO_PIN_4
-#define MOTENA_PIN GPIO_PIN_5
+#define MOTENB_PIN GPIO_PIN_5
 
 int main(void)
 {
@@ -139,7 +139,27 @@ int main(void)
 
   /* Start the PWM Generator */
   status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
-  HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
+
+  setPWMValue(0x2000);
+  while(1) {
+    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
+    HAL_Delay(250);
+    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
+    HAL_Delay(100);
+    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_SET);
+    HAL_Delay(250);
+    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
+    HAL_Delay(100);
+  }
+    
+
+  /*HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
   while(1) {
     HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
     for (uint32_t val = 0x0001; val <= 0x2000; val+=0x0050) {
@@ -151,7 +171,7 @@ int main(void)
       setPWMValue(val);
       HAL_Delay(5);
     }
-  }
+  }*/
   while (1) {
     //Alternate some data packets for easier debugging of output
     /*if (toggle) {
