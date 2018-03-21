@@ -117,14 +117,14 @@ int main(void)
   myData.Data[6] = 0xAA;
   myData.Data[5] = 0xAA;
   myData.Data[4] = 0xAA;
-  myData.Data[3] = 0xEF;
-  myData.Data[2] = 0xBE;
+  myData.Data[3] = 0x0D;
+  myData.Data[2] = 0xD0;
   myData.Data[1] = 0xAD;
   myData.Data[0] = 0xDE;
   myData.DLC = 5;  //Maximum payload length
 
   //Setup the Id info
-  myData.StdId = 0x123;
+  myData.StdId = 0xBAD;
   myData.ExtId = 0x00;
   myData.IDE = CAN_ID_STD;
   myData.RTR = CAN_RTR_DATA;
@@ -132,77 +132,70 @@ int main(void)
   //Add the Tx data to the handler
   hcan.pTxMsg = &myData;
 
+  //Add an RX buffer struct to the handler
+  CanRxMsgTypeDef myRxData;
+  hcan.pRxMsg = &myRxData;
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   HAL_StatusTypeDef status;
-  char toggle = 0;
-
-  /* Start the PWM Generator */
-  /*status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
-
-  setPWMValue(0x2000);
-  while(1) {
-    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
-    HAL_Delay(250);
-    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
-    HAL_Delay(100);
-    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_SET);
-    HAL_Delay(250);
-    HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
-    HAL_Delay(100);
-  }*/
-    
-
-  /*HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
-  while(1) {
-    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
-    for (uint32_t val = 0x0001; val <= 0x2000; val+=0x0050) {
-      setPWMValue(val);
-      HAL_Delay(5);
-    }
-    HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
-    for (uint32_t val = 0x2000; val > 0x0050; val-=0x0050) {
-      setPWMValue(val);
-      HAL_Delay(5);
-    }
-  }*/
-  uint8_t i = 0;
+  uint8_t c=0;
+  uint8_t b=0;
   while (1) {
-    //Alternate some data packets for easier debugging of output
-    /*if (toggle) {
-      myData.Data[7] = 0xFF;
-      myData.Data[6] = 0xFF;
-      myData.Data[5] = 0xFF;
-      myData.Data[4] = 0xFF;
-      myData.Data[3] = 0x00;
-      myData.Data[2] = 0x00;
-      myData.Data[1] = 0x00;
-      myData.Data[0] = 0x00;
-    } else {
-      myData.Data[7] = 0x00;
-      myData.Data[6] = 0x00;
-      myData.Data[5] = 0x00;
-      myData.Data[4] = 0x00;
-      myData.Data[3] = 0xFF;
-      myData.Data[2] = 0xFF;
-      myData.Data[1] = 0xFF;
-      myData.Data[0] = 0xFF;
+    status = HAL_CAN_Receive(&hcan, CAN_FIFO0 ,500);
+    if (status==HAL_OK) {
+      //hcan.pRxMsg or hcanpRx1Msg depending on FIFO used
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      myData.StdId = hcan.pRxMsg->StdId + 2;
+      myData.StdId = 0x231;
+      myData.DLC = hcan.pRxMsg->DLC + 2;
+      // Copy the data that was sent
+      for (int i=0; i<hcan.pRxMsg->DLC; i++) {
+        myData.Data[i] = hcan.pRxMsg->Data[i];
+      }
+      //Append the fifo number used
+      myData.Data[hcan.pRxMsg->DLC] = 0;
+      //Append a number of mesages received count
+      myData.Data[hcan.pRxMsg->DLC+1] = c++;
+      status = HAL_CAN_Transmit(&hcan, 500);
+      /*if (status==HAL_OK) {
+        HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      }*/
+    }
+    status = HAL_CAN_Receive(&hcan, CAN_FIFO1 ,500);
+    if (status==HAL_OK) {
+      //hcan.pRXMsg or hcanpRX1Msg depending on FIFO used
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      myData.StdId = hcan.pRxMsg->StdId + 4;
+      myData.StdId = 0x321;
+      myData.DLC = hcan.pRxMsg->DLC + 2;
+      // Copy the data that was sent
+      for (int i=0; i<hcan.pRxMsg->DLC; i++) {
+        myData.Data[i] = hcan.pRxMsg->Data[i];
+      }
+      //Append the fifo number used
+      myData.Data[hcan.pRxMsg->DLC] = 1;
+      //Append a number of mesages received count
+      myData.Data[hcan.pRxMsg->DLC+1] = c++;
+      status = HAL_CAN_Transmit(&hcan, 500);
+      /*if (status==HAL_OK) {
+        HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      }*/
+    }
+    /*status = HAL_CAN_Transmit(&hcan, 500);
+    if(status==HAL_OK) {
+        myData.Data[4] = b++;
+        HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
     }*/
-    toggle ^= 1;  //Flip the toggle
-    myData.Data[4] = i++;
+
+    /*myData.Data[4] = c++;
     //Send some data on the CAN bus line
     //HAL_OK HAL_ERROR HAL_TIMEOUT
     status = HAL_CAN_Transmit(&hcan, 500);
     if(status==HAL_OK) {
       HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     }
-    HAL_Delay(500);
+    HAL_Delay(500);*/
   }
 }
 
@@ -335,8 +328,8 @@ static void MX_CAN_Init(void)
   hcan.Init.Mode = CAN_MODE_NORMAL;
   //hcan.Init.Mode = CAN_MODE_LOOPBACK;
   hcan.Init.SJW = CAN_SJW_1TQ;
-  hcan.Init.BS1 = CAN_BS1_4TQ;
-  hcan.Init.BS2 = CAN_BS2_3TQ;
+  hcan.Init.BS1 = CAN_BS1_6TQ;
+  hcan.Init.BS2 = CAN_BS2_1TQ;
   hcan.Init.TTCM = DISABLE;
   hcan.Init.ABOM = DISABLE;
   hcan.Init.AWUM = DISABLE;
@@ -348,6 +341,21 @@ static void MX_CAN_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
+  //Setup a filter to filter out nothing!
+  CAN_FilterConfTypeDef filterConf;
+  filterConf.FilterIdHigh = 0x0000;
+  filterConf.FilterIdLow = 0x0000;
+  filterConf.FilterMaskIdHigh = 0x0000;
+  filterConf.FilterMaskIdLow = 0x0000;
+  filterConf.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  filterConf.FilterNumber = 0;
+  filterConf.FilterMode = CAN_FILTERMODE_IDMASK;
+  filterConf.FilterScale = CAN_FILTERSCALE_32BIT;
+  filterConf.FilterActivation = ENABLE;
+  filterConf.BankNumber = 0;
+  if (HAL_CAN_ConfigFilter(&hcan, &filterConf) != HAL_OK) {
+    _Error_Handler(__FILE__, __LINE__);
+  }
 }
 
 /* I2C1 init function */
