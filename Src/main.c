@@ -117,15 +117,15 @@ int main(void)
   myData.Data[6] = 0xAA;
   myData.Data[5] = 0xAA;
   myData.Data[4] = 0xAA;
-  myData.Data[3] = 0x55;
-  myData.Data[2] = 0x55;
-  myData.Data[1] = 0x55;
-  myData.Data[0] = 0x55;
-  myData.DLC = 8;  //Maximum payload length
+  myData.Data[3] = 0xEF;
+  myData.Data[2] = 0xBE;
+  myData.Data[1] = 0xAD;
+  myData.Data[0] = 0xDE;
+  myData.DLC = 4;  //Maximum payload length
 
   //Setup the Id info
-  myData.StdId = 0x000;
-  myData.ExtId = 0x01;
+  myData.StdId = 0x123;
+  myData.ExtId = 0x00;
   myData.IDE = CAN_ID_STD;
   myData.RTR = CAN_RTR_DATA;
 
@@ -138,7 +138,7 @@ int main(void)
   char toggle = 0;
 
   /* Start the PWM Generator */
-  status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+  /*status = HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
 
   setPWMValue(0x2000);
   while(1) {
@@ -156,7 +156,7 @@ int main(void)
     HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
     HAL_Delay(100);
-  }
+  }*/
     
 
   /*HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
@@ -330,12 +330,12 @@ static void MX_CAN_Init(void)
 {
 
   hcan.Instance = CAN;
-  hcan.Init.Prescaler = 11;
+  hcan.Init.Prescaler = 4;
   hcan.Init.Mode = CAN_MODE_NORMAL;
   //hcan.Init.Mode = CAN_MODE_LOOPBACK;
   hcan.Init.SJW = CAN_SJW_1TQ;
   hcan.Init.BS1 = CAN_BS1_4TQ;
-  hcan.Init.BS2 = CAN_BS2_1TQ;
+  hcan.Init.BS2 = CAN_BS2_3TQ;
   hcan.Init.TTCM = DISABLE;
   hcan.Init.ABOM = DISABLE;
   hcan.Init.AWUM = DISABLE;
