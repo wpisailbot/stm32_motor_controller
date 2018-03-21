@@ -328,8 +328,8 @@ static void MX_CAN_Init(void)
   hcan.Init.Mode = CAN_MODE_NORMAL;
   //hcan.Init.Mode = CAN_MODE_LOOPBACK;
   hcan.Init.SJW = CAN_SJW_1TQ;
-  hcan.Init.BS1 = CAN_BS1_6TQ;
-  hcan.Init.BS2 = CAN_BS2_1TQ;
+  hcan.Init.BS1 = CAN_BS1_6TQ;  //Time Quanta settings from
+  hcan.Init.BS2 = CAN_BS2_1TQ;  //CANOpen recommendations
   hcan.Init.TTCM = DISABLE;
   hcan.Init.ABOM = DISABLE;
   hcan.Init.AWUM = DISABLE;
