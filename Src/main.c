@@ -121,7 +121,7 @@ int main(void)
   myData.Data[2] = 0xBE;
   myData.Data[1] = 0xAD;
   myData.Data[0] = 0xDE;
-  myData.DLC = 4;  //Maximum payload length
+  myData.DLC = 5;  //Maximum payload length
 
   //Setup the Id info
   myData.StdId = 0x123;
@@ -172,6 +172,7 @@ int main(void)
       HAL_Delay(5);
     }
   }*/
+  uint8_t i = 0;
   while (1) {
     //Alternate some data packets for easier debugging of output
     /*if (toggle) {
@@ -194,7 +195,7 @@ int main(void)
       myData.Data[0] = 0xFF;
     }*/
     toggle ^= 1;  //Flip the toggle
-
+    myData.Data[4] = i++;
     //Send some data on the CAN bus line
     //HAL_OK HAL_ERROR HAL_TIMEOUT
     status = HAL_CAN_Transmit(&hcan, 500);
