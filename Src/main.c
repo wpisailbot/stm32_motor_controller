@@ -142,11 +142,35 @@ int main(void)
   uint8_t c=0;
   uint8_t b=0;
   while (1) {
-    status = HAL_CAN_Receive(&hcan, CAN_FIFO0 ,500);
+    //Clear the received message ids
+    hcan.pRxMsg->StdId = 0;
+    hcan.pRxMsg->ExtId = 0;
+    //Attempt to receive a new can message, but timeout quickly, because there is a lot on the bus
+    status = HAL_CAN_Receive(&hcan, CAN_FIFO0, 1);
     if (status==HAL_OK) {
       //hcan.pRxMsg or hcanpRx1Msg depending on FIFO used
-      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-      myData.StdId = hcan.pRxMsg->StdId + 2;
+      //Check to make sure that the message is for this motor controller
+      //TODO make this ID checking more intuitive
+      if((hcan.pRxMsg->ExtId == 0x14FF0215) &&
+         (hcan.pRxMsg->StdId == 0x00000000) &&
+         (hcan.pRxMsg->DLC >= 3)) {
+      //if((hcan.pRxMsg->DLC >= 3)) {
+        uint8_t winchval = hcan.pRxMsg->Data[0];
+        uint8_t rudderval = hcan.pRxMsg->Data[1];
+        uint8_t ballastval = hcan.pRxMsg->Data[2];
+        //Conver winchval to useful units
+        //pwmWrte(winchval)
+        if (ballastval > 90) {
+          HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
+        } else {
+          HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
+        }
+      }
+
+
+
+
+      /*myData.StdId = hcan.pRxMsg->StdId + 2;
       myData.StdId = 0x231;
       myData.DLC = hcan.pRxMsg->DLC + 2;
       // Copy the data that was sent
@@ -157,27 +181,7 @@ int main(void)
       myData.Data[hcan.pRxMsg->DLC] = 0;
       //Append a number of mesages received count
       myData.Data[hcan.pRxMsg->DLC+1] = c++;
-      status = HAL_CAN_Transmit(&hcan, 500);
-      /*if (status==HAL_OK) {
-        HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-      }*/
-    }
-    status = HAL_CAN_Receive(&hcan, CAN_FIFO1 ,500);
-    if (status==HAL_OK) {
-      //hcan.pRXMsg or hcanpRX1Msg depending on FIFO used
-      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-      myData.StdId = hcan.pRxMsg->StdId + 4;
-      myData.StdId = 0x321;
-      myData.DLC = hcan.pRxMsg->DLC + 2;
-      // Copy the data that was sent
-      for (int i=0; i<hcan.pRxMsg->DLC; i++) {
-        myData.Data[i] = hcan.pRxMsg->Data[i];
-      }
-      //Append the fifo number used
-      myData.Data[hcan.pRxMsg->DLC] = 1;
-      //Append a number of mesages received count
-      myData.Data[hcan.pRxMsg->DLC+1] = c++;
-      status = HAL_CAN_Transmit(&hcan, 500);
+      status = HAL_CAN_Transmit(&hcan, 500);*/
       /*if (status==HAL_OK) {
         HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
       }*/
@@ -196,6 +200,10 @@ int main(void)
       HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     }
     HAL_Delay(500);*/
+
+    //HAL_GetTick() Get the current time in milliseconds
+    // TODO: state machine for safety timeout
+    // TODO: time based sending of status data
   }
 }
 
