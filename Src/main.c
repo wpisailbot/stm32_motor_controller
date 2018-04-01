@@ -52,6 +52,8 @@ CAN_HandleTypeDef hcan;
 
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim3;
+
 TIM_HandleTypeDef htim16;
 
 UART_HandleTypeDef huart2;
@@ -68,6 +70,7 @@ static void MX_ADC_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_CAN_Init(void);
+static void MX_TIM3_Init(void);
 static void MX_TIM16_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
@@ -86,6 +89,17 @@ void setPWMValue(uint32_t value);
 #define MOTINB_PIN GPIO_PIN_4
 #define MOTENB_PIN GPIO_PIN_5
 
+
+/* Software timing for status and sensor values */
+#define SENSOR_UPDATESTEP 50;
+#define STATUS_UPDATESTEP 100;
+uint32_t sensor_nexttime;
+uint32_t status_nexttime;
+
+
+uint8_t count1 = 0;
+uint8_t count2 = 0;
+
 int main(void)
 {
 
@@ -102,6 +116,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_I2C1_Init();
   MX_CAN_Init();
+  MX_TIM3_Init();
   MX_TIM16_Init();
 
   /* Set the CAN hardware to continue while code is stopped in debug */
@@ -136,11 +151,12 @@ int main(void)
   CanRxMsgTypeDef myRxData;
   hcan.pRxMsg = &myRxData;
 
+  sensor_nexttime = 0;
+  status_nexttime = 0;
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   HAL_StatusTypeDef status;
-  uint8_t c=0;
-  uint8_t b=0;
   while (1) {
     //Clear the received message ids
     hcan.pRxMsg->StdId = 0;
@@ -160,50 +176,42 @@ int main(void)
         uint8_t ballastval = hcan.pRxMsg->Data[2];
         //Conver winchval to useful units
         //pwmWrte(winchval)
-        if (ballastval > 90) {
+        /*if (ballastval > 90) {
           HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
         } else {
           HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
-        }
+        }*/
       }
-
-
-
-
-      /*myData.StdId = hcan.pRxMsg->StdId + 2;
-      myData.StdId = 0x231;
-      myData.DLC = hcan.pRxMsg->DLC + 2;
-      // Copy the data that was sent
-      for (int i=0; i<hcan.pRxMsg->DLC; i++) {
-        myData.Data[i] = hcan.pRxMsg->Data[i];
-      }
-      //Append the fifo number used
-      myData.Data[hcan.pRxMsg->DLC] = 0;
-      //Append a number of mesages received count
-      myData.Data[hcan.pRxMsg->DLC+1] = c++;
-      status = HAL_CAN_Transmit(&hcan, 500);*/
-      /*if (status==HAL_OK) {
-        HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-      }*/
     }
-    /*status = HAL_CAN_Transmit(&hcan, 500);
-    if(status==HAL_OK) {
-        myData.Data[4] = b++;
-        HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
-    }*/
+    
+    // Software "timer" for sensor updates
+    if (sensor_nexttime <= HAL_GetTick()) {
+      //
+      sensor_nexttime += SENSOR_UPDATESTEP;
+      myData.StdId = 0x00;
+      myData.ExtId = 0x14FF0115;
+      myData.IDE = CAN_ID_EXT;
+      myData.RTR = CAN_RTR_DATA;
+      myData.DLC = 2;
+      myData.Data[0] = count1++;
+      HAL_CAN_Transmit(&hcan, 1);
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+    }
 
-    /*myData.Data[4] = c++;
-    //Send some data on the CAN bus line
-    //HAL_OK HAL_ERROR HAL_TIMEOUT
-    status = HAL_CAN_Transmit(&hcan, 500);
-    if(status==HAL_OK) {
+    // Software "timer" for status updates
+    if (status_nexttime <= HAL_GetTick()) {
+      status_nexttime += STATUS_UPDATESTEP;
+      myData.StdId = 0x00;
+      myData.ExtId = 0x14FF0315;
+      myData.IDE = CAN_ID_EXT;
+      myData.RTR = CAN_RTR_DATA;
+      myData.DLC = 8;
+      //HAL_TIM_Encoder_Start
+      //__HAL_TIM_GET_COUNTER
+      myData.Data[0] = count2++;
+      HAL_CAN_Transmit(&hcan, 1);
       HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     }
-    HAL_Delay(500);*/
-
-    //HAL_GetTick() Get the current time in milliseconds
-    // TODO: state machine for safety timeout
-    // TODO: time based sending of status data
   }
 }
 
@@ -394,6 +402,42 @@ static void MX_I2C1_Init(void)
     /**Configure Digital filter
     */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/* TIM3 init function */
+static void MX_TIM3_Init(void)
+{
+
+  TIM_Encoder_InitTypeDef sConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 0;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
