@@ -198,7 +198,7 @@ int main(void)
       myData.Data[1] = enc_val&0xff;
       myData.Data[0] = (enc_val>>8)&0xff;
       myData.Data[2] = count1++;
-      HAL_CAN_Transmit(&hcan, 1);
+      //HAL_CAN_Transmit(&hcan, 1);
       HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
     }
 
@@ -209,9 +209,22 @@ int main(void)
       myData.ExtId = 0x14FF0315;
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
-      myData.DLC = 8;
-      myData.Data[0] = count2++;
-      //HAL_CAN_Transmit(&hcan, 1);
+      myData.DLC = 5;
+      /* Trigger an ADC read */
+      uint16_t temp_val;
+      uint16_t curr_val;
+      HAL_ADC_Start(&hadc);  /* TODO Not sure if this is needed every loop...*/
+      //HAL_ADC_PollForConversion(&hadc, 10);
+      //curr_val = HAL_ADC_GetValue(&hadc);
+      HAL_ADC_PollForConversion(&hadc, 10);
+      temp_val = HAL_ADC_GetValue(&hadc);
+      //HAL_ADC_Stop(&hadc);
+      myData.Data[1] = temp_val & 0xff;
+      myData.Data[0] = (temp_val>>8) & 0xff;
+      myData.Data[3] = curr_val & 0xff;
+      myData.Data[2] = (curr_val>>8) & 0xff;
+      myData.Data[4] = count2++;
+      HAL_CAN_Transmit(&hcan, 1);
       HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     }
   }
@@ -306,7 +319,8 @@ static void MX_ADC_Init(void)
   hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc.Init.LowPowerAutoWait = DISABLE;
   hadc.Init.LowPowerAutoPowerOff = DISABLE;
-  hadc.Init.ContinuousConvMode = DISABLE;
+  //hadc.Init.ContinuousConvMode = DISABLE;
+  hadc.Init.ContinuousConvMode = ENABLE;
   hadc.Init.DiscontinuousConvMode = DISABLE;
   hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -319,9 +333,10 @@ static void MX_ADC_Init(void)
 
     /**Configure for the selected ADC regular channel to be converted.
     */
-  sConfig.Channel = ADC_CHANNEL_0;
+  //sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.Channel = ADC_CHANNEL_1;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -329,11 +344,11 @@ static void MX_ADC_Init(void)
 
     /**Configure for the selected ADC regular channel to be converted.
     */
-  sConfig.Channel = ADC_CHANNEL_1;
+  /*sConfig.Channel = ADC_CHANNEL_1;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
-  }
+  }*/
 
 }
 
