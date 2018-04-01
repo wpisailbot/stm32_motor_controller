@@ -126,25 +126,9 @@ int main(void)
   volatile unsigned int * CAN_MSR = 0x40006404u;
   *(CAN_MSR) = 3080l;
 
-  /* Setup some dummy data to send */
-  CanTxMsgTypeDef myData;
-  myData.Data[7] = 0xAA;
-  myData.Data[6] = 0xAA;
-  myData.Data[5] = 0xAA;
-  myData.Data[4] = 0xAA;
-  myData.Data[3] = 0x0D;
-  myData.Data[2] = 0xD0;
-  myData.Data[1] = 0xAD;
-  myData.Data[0] = 0xDE;
-  myData.DLC = 5;  //Maximum payload length
-
-  //Setup the Id info
-  myData.StdId = 0xBAD;
-  myData.ExtId = 0x00;
-  myData.IDE = CAN_ID_STD;
-  myData.RTR = CAN_RTR_DATA;
 
   //Add the Tx data to the handler
+  CanTxMsgTypeDef myData;
   hcan.pTxMsg = &myData;
 
   //Add an RX buffer struct to the handler
@@ -153,6 +137,8 @@ int main(void)
 
   sensor_nexttime = 0;
   status_nexttime = 0;
+
+
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -213,12 +199,15 @@ int main(void)
       /* Trigger an ADC read */
       uint16_t temp_val;
       uint16_t curr_val;
-      HAL_ADC_Start(&hadc);  /* TODO Not sure if this is needed every loop...*/
-      //HAL_ADC_PollForConversion(&hadc, 10);
-      //curr_val = HAL_ADC_GetValue(&hadc);
+
+      //Set the ADC to read from specific channels in setup for group mode
+      //Then call Start, and poll for conversion.  GetValue into a buffer, and read for as many times as channels setup.
+      //Call start for next polling round.  TODO fix this to be "correct"
+      HAL_ADC_Start(&hadc);
       HAL_ADC_PollForConversion(&hadc, 10);
+      curr_val = HAL_ADC_GetValue(&hadc);
       temp_val = HAL_ADC_GetValue(&hadc);
-      //HAL_ADC_Stop(&hadc);
+      HAL_ADC_Stop(&hadc);
       myData.Data[1] = temp_val & 0xff;
       myData.Data[0] = (temp_val>>8) & 0xff;
       myData.Data[3] = curr_val & 0xff;
@@ -310,13 +299,15 @@ static void MX_ADC_Init(void)
   ADC_ChannelConfTypeDef sConfig;
 
     /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-    */
+       TODO Not sure why these settings need to be like this, but it works*/
   hadc.Instance = ADC1;
   hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc.Init.Resolution = ADC_RESOLUTION_12B;
   hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
-  hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  //hadc.Init.ScanConvMode = ADC_SCAN_DIRECTION_FORWARD;
+  hadc.Init.ScanConvMode = DISABLE;
+  //hadc.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc.Init.EOCSelection = DISABLE;
   hadc.Init.LowPowerAutoWait = DISABLE;
   hadc.Init.LowPowerAutoPowerOff = DISABLE;
   //hadc.Init.ContinuousConvMode = DISABLE;
@@ -333,22 +324,23 @@ static void MX_ADC_Init(void)
 
     /**Configure for the selected ADC regular channel to be converted.
     */
-  //sConfig.Channel = ADC_CHANNEL_0;
+
   sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-  sConfig.Channel = ADC_CHANNEL_1;
+
+  sConfig.Channel = ADC_CHANNEL_0;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure for the selected ADC regular channel to be converted.
+  /**Configure for the selected ADC regular channel to be converted.
     */
-  /*sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Channel = ADC_CHANNEL_1;
   if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
-  }*/
+  }
 
 }
 
