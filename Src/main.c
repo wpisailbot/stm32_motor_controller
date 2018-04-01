@@ -192,8 +192,12 @@ int main(void)
       myData.ExtId = 0x14FF0115;
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
-      myData.DLC = 2;
-      myData.Data[0] = count1++;
+      myData.DLC = 3;
+            //HAL_TIM_Encoder_Start
+      uint16_t enc_val = __HAL_TIM_GET_COUNTER(&htim3);
+      myData.Data[1] = enc_val&0xff;
+      myData.Data[0] = (enc_val>>8)&0xff;
+      myData.Data[2] = count1++;
       HAL_CAN_Transmit(&hcan, 1);
       HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
     }
@@ -206,10 +210,8 @@ int main(void)
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
       myData.DLC = 8;
-      //HAL_TIM_Encoder_Start
-      //__HAL_TIM_GET_COUNTER
       myData.Data[0] = count2++;
-      HAL_CAN_Transmit(&hcan, 1);
+      //HAL_CAN_Transmit(&hcan, 1);
       HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     }
   }
@@ -418,10 +420,10 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 0;
+  htim3.Init.Period = 0xffff;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
@@ -442,6 +444,11 @@ static void MX_TIM3_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
+  /* Start the Encoder counting module */
+  //if (HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL)) {
+  if (HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_1)) {
+    _Error_Handler(__FILE__, __LINE__);
+  }
 }
 
 /* TIM16 init function */
