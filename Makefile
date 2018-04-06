@@ -13,7 +13,7 @@
 ######################################
 # target
 ######################################
-TARGET = test_motor_board
+TARGET = stm32_motor_controller
 
 
 ######################################
@@ -199,7 +199,7 @@ $(BUILD_DIR):
 # upload
 #######################################
 upload:
-	st-flash write build/test_motor_board.bin 0x08000000
+	st-flash write build/stm32_motor_controller.bin 0x08000000
 
 #######################################
 # clean up

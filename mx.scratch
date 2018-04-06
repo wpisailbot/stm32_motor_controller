@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Project>
-<ProjectName>/home/jordanbrobots/Documents/wpisailbot/test_motor_board/\test_motor_board</ProjectName>
+<ProjectName>/home/jordanbrobots/Documents/wpisailbot/stm32_motor_controller/\stm32_motor_controller</ProjectName>
 <CMSIS>Drivers/CMSIS</CMSIS>
 <HAL_Driver>/home/jordanbrobots/STM32Cube/Repository//STM32Cube_FW_F0_V1.9.0/Drivers/CMSIS</HAL_Driver>
 
@@ -22,7 +22,7 @@
 
 <configs>
   <config>
-    <name>test_motor_board</name>				
+    <name>stm32_motor_controller</name>				
     <device>STM32F042K6Tx</device>		 
     <heapSize>0x200</heapSize>
     <stackSize>0x400</stackSize>
