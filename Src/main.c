@@ -113,7 +113,6 @@ void setEncoderZero(float angle);
 uint32_t sensor_nexttime;
 uint32_t status_nexttime;
 
-
 uint8_t count1 = 0;
 uint8_t count2 = 0;
 
@@ -187,8 +186,17 @@ int main(void)
         uint8_t ballastval = hcan.pRxMsg->Data[2];
 
         //Convert winchval to useful units
+
+        //if (90-winchval
+        /*if (winchval-90 > 0) {
+          motor_pwm_val = (90-winchval)*(0x2000/90);
+          motor_dir_val = 1;
+        } else{
+          motor_pwm_val = (winchval-90)*(0x2000/90);
+          motor_dir_val = 2;
+        }*/
         // period is 0x2000
-        if (ballastval-90 < 0) {
+        if (90-ballastval < 0) {
           motor_pwm_val = (90-ballastval)*(0x2000/90);
           motor_dir_val = 1;
         } else{
@@ -244,7 +252,23 @@ int main(void)
       myData.RTR = CAN_RTR_DATA;
       
       // Get the encoder value
-      uint16_t enc_val = __HAL_TIM_GET_COUNTER(&htim3);
+      // 280 ticks/rev
+      // approx 7 turns
+      int16_t enc_val = __HAL_TIM_GET_COUNTER(&htim3);
+
+      enc_val = enc_val>>4;
+      enc_val += 127;
+      if(enc_val < 0) {
+        enc_val = 0x00;
+      } else if (enc_val > 0xFF) {
+        enc_val = 0xFF;
+      }
+      
+      myData.ExtId = 0x14FF0115;
+      myData.DLC = 3;
+      myData.Data[0] = enc_val;
+      myData.Data[2] = count1++;
+      //HAL_CAN_Transmit(&hcan, 1);
 
       // Get the inclinometer value
       float inc_val = readHeel();
@@ -252,29 +276,14 @@ int main(void)
       // Get the ballast angle
       float bal_ang = readEncoder();
 
-      /*if (bal_ang < 0) {
-        bal_ang *= -1.0;
-        //Shove in a basic sign bit for debuggging
-        myData.Data[1] = 1;
-      } else {
-        myData.Data[1] = 0;
-      }*/
-
-
-      myData.ExtId = 0x14FF0115;
-      myData.DLC = 3;
-      myData.Data[0] = enc_val>>8;
-      myData.Data[2] = count1++;
-      HAL_CAN_Transmit(&hcan, 1);
-
       // Send data *10000 in radians
       // Inclinometer first  Not sure what the order of bits is yet
       myData.ExtId = 0x14FF0515;
       myData.DLC = 4;
-      // Dumb offset right now b/c reset isn't working
-      bal_ang = bal_ang - 145;
       // Convert to radians 
-      bal_ang = bal_ang - 85;
+      if (bal_ang > 180) {
+        bal_ang = bal_ang-360;
+      }
       bal_ang = bal_ang*3.14159/180.0*10000;
       // Dumb offset right now to get it centered on 0
       inc_val = -inc_val;
@@ -824,11 +833,19 @@ float readEncoder() {
 }
 
 void setEncoderZero(float angle) {
-  float newZero = angle * 45.508;
-  uint8_t top = ((uint16_t)newZero) >> 6;  //Upper 6 bits of zero pos (not really)
-  uint8_t btm = ((uint16_t)newZero) & 0x003F; //Bottom 8 bits (not really)
+  //float newZero = angle * 45.508;
+  //uint8_t top = ((uint16_t)newZero) >> 6;  //Upper bits of zero pos (not really)
+  //uint8_t btm = ((uint16_t)newZero) & 0x003F; //Bottom 6 bits (not really)
 
   HAL_StatusTypeDef status;
+
+  uint8_t top, btm;
+  uint8_t zero = 0;
+  status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x16, 1, &zero, 1, 100);
+  status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x17, 1, &zero, 1, 100);
+
+  status = HAL_I2C_Mem_Read(&hi2c1, MANG_ADDR, 0xFE, 1, &top, 1, 100);
+  status = HAL_I2C_Mem_Read(&hi2c1, MANG_ADDR, 0xFF, 1, &btm, 1, 100);
   status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x16, 1, &top, 1, 100);
   status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x17, 1, &btm, 1, 100);
 
