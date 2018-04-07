@@ -41,6 +41,8 @@
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx_hal_can.h"
 
+#include "math.h"
+
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
@@ -78,6 +80,12 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 /* Convenience function for setting the PWM rate */
 void setPWMValue(uint32_t value);
 
+/* Convenience functions for the Inclinometer */
+void setupInclinometer();
+float readHeel();
+int readInclinometer(uint16_t reg);
+uint16_t probeAddresses();
+
 /* Defines for the board's LEDs */
 #define LEDG_PIN GPIO_PIN_1
 #define LEDR_PIN GPIO_PIN_0
@@ -88,6 +96,9 @@ void setPWMValue(uint32_t value);
 #define MOTENA_PIN GPIO_PIN_6
 #define MOTINB_PIN GPIO_PIN_4
 #define MOTENB_PIN GPIO_PIN_5
+
+/* Defines for the Inclinometer */
+#define INCL_ADDR (0x14<<1)
 
 
 /* Software timing for status and sensor values */
@@ -140,6 +151,22 @@ int main(void)
 
   uint32_t motor_pwm_val = 0;
   uint32_t motor_dir_val = 0;
+
+  //setupInclinometer();
+  uint16_t addr = probeAddresses();
+
+  
+      myData.StdId = 0x00;
+      myData.ExtId = 0x14FF0915;
+      myData.IDE = CAN_ID_EXT;
+      myData.RTR = CAN_RTR_DATA;
+      myData.DLC = 2;
+
+      myData.Data[1] = addr&0xFF;
+      myData.Data[0] = (addr>>8)&0xFF;
+      HAL_CAN_Transmit(&hcan, 1);
+
+  HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -205,8 +232,13 @@ int main(void)
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
       myData.DLC = 3;
-            //HAL_TIM_Encoder_Start
+      
+      // Get the encoder value
       uint16_t enc_val = __HAL_TIM_GET_COUNTER(&htim3);
+
+      // Get the inclinometer value
+      uint8_t i2crxbuf[2];
+
       myData.Data[1] = enc_val&0xff;
       myData.Data[0] = (enc_val>>8)&0xff;
       myData.Data[2] = count1++;
@@ -419,7 +451,11 @@ static void MX_I2C1_Init(void)
 {
 
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x2000090E;
+  //hi2c1.Init.Timing = 0x2000090E;
+  hi2c1.Init.Timing = 0x1042C3C7; //Timing for 10kHz clock w/ 8Mhz osc
+  //hi2c1.Init.Timing = 0x10420F13;  //Timing for 100kHz clock w/ 8MHz osc
+  //hi2c1.Init.Timing = 0x00310309;  //Timing for 400kHz clock w/ 8MHz osc
+  //hi2c1.Init.Timing = 0x00100306;  //Timing for 500kHz clock w/ 8MHz osc
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -633,6 +669,60 @@ void assert_failed(uint8_t* file, uint32_t line)
 }
 
 #endif
+
+
+void setupInclinometer() {
+
+  uint8_t txbuf[2];
+  HAL_StatusTypeDef status;
+
+  //Setup the required factory bits for boot
+  //Need to send 0x0F to address 0x08 per the datasheet
+  txbuf[0] = 0x0f;
+  status = HAL_I2C_Mem_Write(&hi2c1, INCL_ADDR, 0x08, 1, txbuf, 1, 100);
+
+  // Block for now if there is an error
+  while(status != HAL_OK) {
+    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+    HAL_Delay(100);
+  }
+
+  //Setup the tipover register for 70 degrees
+  txbuf[0] = 0x18;
+  status = HAL_I2C_Mem_Write(&hi2c1, INCL_ADDR, 0x07, 1, txbuf, 1, 100);
+
+  // Block for now if there is an error
+  while(status != HAL_OK) {
+    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+    HAL_Delay(500);
+  }
+}
+
+float readHeel() {
+
+}
+
+int readInclinometer(uint16_t reg) {
+
+}
+
+
+uint16_t probeAddresses() {
+  uint8_t txbuf[2];
+  HAL_StatusTypeDef status;
+
+  txbuf[0] = 0x0f;
+
+  for (uint16_t i=0; i<=0x7F; i++) {
+    status = HAL_I2C_Mem_Write(&hi2c1, (i<<1), 0x08, 1, txbuf, 1, 50);
+    if (status == HAL_OK) {
+      return i;
+    }
+  }
+  return 0xFFFF;
+}
 
 /**
   * @}
