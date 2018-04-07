@@ -83,7 +83,7 @@ void setPWMValue(uint32_t value);
 /* Convenience functions for the Inclinometer */
 void setupInclinometer();
 float readHeel();
-int readInclinometer(uint16_t reg);
+int16_t readInclinometer(uint16_t reg);
 uint16_t probeAddresses();
 
 /* Defines for the board's LEDs */
@@ -152,19 +152,7 @@ int main(void)
   uint32_t motor_pwm_val = 0;
   uint32_t motor_dir_val = 0;
 
-  //setupInclinometer();
-  uint16_t addr = probeAddresses();
-
-  
-      myData.StdId = 0x00;
-      myData.ExtId = 0x14FF0915;
-      myData.IDE = CAN_ID_EXT;
-      myData.RTR = CAN_RTR_DATA;
-      myData.DLC = 2;
-
-      myData.Data[1] = addr&0xFF;
-      myData.Data[0] = (addr>>8)&0xFF;
-      HAL_CAN_Transmit(&hcan, 1);
+  setupInclinometer();
 
   HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
 
@@ -237,10 +225,17 @@ int main(void)
       uint16_t enc_val = __HAL_TIM_GET_COUNTER(&htim3);
 
       // Get the inclinometer value
-      uint8_t i2crxbuf[2];
+      float inc_val = readHeel();
 
-      myData.Data[1] = enc_val&0xff;
-      myData.Data[0] = (enc_val>>8)&0xff;
+      if (inc_val < 0) {
+        inc_val *= -1.0;
+        //Shove in a basic sign bit for debuggging
+        myData.Data[1] = 1;
+      } else {
+        myData.Data[1] = 0;
+      }
+
+      myData.Data[0] = (int) inc_val;
       myData.Data[2] = count1++;
       HAL_CAN_Transmit(&hcan, 1);
       //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
@@ -698,14 +693,43 @@ void setupInclinometer() {
     HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
     HAL_Delay(500);
   }
+
+  //Allow the inclinometer time to warmup
+  HAL_Delay(500);
 }
 
 float readHeel() {
+  //Get the X and Y accelerations
+  int16_t x_val = readInclinometer(0x00);
+  int16_t y_val = readInclinometer(0x02);
 
+  //Convert from radians to degrees
+  return atan2(x_val,y_val)*57.32;
 }
 
-int readInclinometer(uint16_t reg) {
+int16_t readInclinometer(uint16_t reg) {
+  uint8_t rxbuf[2];
+  HAL_StatusTypeDef status;
 
+  //TODO Add acceleration check from register 0x06
+  int16_t val;
+  //For some reason, multibyte reads doesn't appear to work...
+  //Get the upper 6 bits
+  status = HAL_I2C_Mem_Read(&hi2c1, INCL_ADDR, reg+1, 1, rxbuf, 1, 100);
+  if (status == HAL_OK) {
+    val = rxbuf[0]<<8;
+  } else {
+    return 0xFFFF;
+  }
+  //Get the lower 8 bits
+  status = HAL_I2C_Mem_Read(&hi2c1, INCL_ADDR, reg, 1, rxbuf, 1, 100);
+  if (status == HAL_OK) {
+    val |= rxbuf[0];
+  } else {
+    return 0xFFFF;
+  }
+
+  return val<<2;
 }
 
 
