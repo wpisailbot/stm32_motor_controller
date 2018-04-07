@@ -86,6 +86,12 @@ float readHeel();
 int16_t readInclinometer(uint16_t reg);
 uint16_t probeAddresses();
 
+
+/* Convenience functions for the magnetic encoder */
+void setupMagEncoder();
+float readEncoder();
+void setEncoderZero(float angle);
+
 /* Defines for the board's LEDs */
 #define LEDG_PIN GPIO_PIN_1
 #define LEDR_PIN GPIO_PIN_0
@@ -99,7 +105,7 @@ uint16_t probeAddresses();
 
 /* Defines for the Inclinometer */
 #define INCL_ADDR (0x14<<1)
-
+#define MANG_ADDR (0x40<<1)
 
 /* Software timing for status and sensor values */
 #define SENSOR_UPDATESTEP 50;
@@ -171,6 +177,7 @@ int main(void)
       //hcan.pRxMsg or hcanpRx1Msg depending on FIFO used
       //Check to make sure that the message is for this motor controller
       //TODO make this ID checking more intuitive
+      // Receive the SCAMP command messge
       if((hcan.pRxMsg->ExtId == 0x14FF0215) &&
          (hcan.pRxMsg->StdId == 0x00000000) &&
          (hcan.pRxMsg->DLC >= 3)) {
@@ -187,6 +194,21 @@ int main(void)
         } else{
           motor_pwm_val = (ballastval-90)*(0x2000/90);
           motor_dir_val = 2;
+        }
+      }
+
+      // Set Moveable Ballast zero position
+      if((hcan.pRxMsg->ExtId == 0x14FFFFF1) &&
+         (hcan.pRxMsg->DLC ==0)) {
+        // Get the current angle as the reference position
+        float curr_ang = readEncoder();
+        if (curr_ang >-1000) {
+          setEncoderZero(curr_ang);
+        }
+      
+        for (int i=0; i<4; i++) {
+          HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+          HAL_Delay(100);
         }
       }
     }
@@ -218,10 +240,8 @@ int main(void)
       //
       sensor_nexttime += SENSOR_UPDATESTEP;
       myData.StdId = 0x00;
-      myData.ExtId = 0x14FF0115;
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
-      myData.DLC = 3;
       
       // Get the encoder value
       uint16_t enc_val = __HAL_TIM_GET_COUNTER(&htim3);
@@ -229,18 +249,41 @@ int main(void)
       // Get the inclinometer value
       float inc_val = readHeel();
 
-      if (inc_val < 0) {
-        inc_val *= -1.0;
+      // Get the ballast angle
+      float bal_ang = readEncoder();
+
+      /*if (bal_ang < 0) {
+        bal_ang *= -1.0;
         //Shove in a basic sign bit for debuggging
         myData.Data[1] = 1;
       } else {
         myData.Data[1] = 0;
-      }
+      }*/
 
-      myData.Data[0] = (int) inc_val;
+
+      myData.ExtId = 0x14FF0115;
+      myData.DLC = 3;
+      myData.Data[0] = enc_val>>8;
       myData.Data[2] = count1++;
       HAL_CAN_Transmit(&hcan, 1);
-      //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+
+      // Send data *10000 in radians
+      // Inclinometer first  Not sure what the order of bits is yet
+      myData.ExtId = 0x14FF0515;
+      myData.DLC = 4;
+      // Dumb offset right now b/c reset isn't working
+      bal_ang = bal_ang - 145;
+      // Convert to radians 
+      bal_ang = bal_ang - 85;
+      bal_ang = bal_ang*3.14159/180.0*10000;
+      // Dumb offset right now to get it centered on 0
+      inc_val = -inc_val;
+      inc_val = inc_val*3.14159/180.0*10000;
+      myData.Data[0] = ((int16_t)inc_val) & 0xFF;
+      myData.Data[1] = (((int16_t)inc_val) >> 8) & 0xFF;
+      myData.Data[2] = ((int16_t)bal_ang) & 0xFF;
+      myData.Data[3] = (((int16_t)bal_ang) >> 8) & 0xFF;
+      HAL_CAN_Transmit(&hcan, 1);
     }
 
     // Software "timer" for status updates
@@ -274,7 +317,6 @@ int main(void)
                        (!HAL_GPIO_ReadPin(GPIOB, MOTENA_PIN));
       myData.Data[5] = count2++;
       HAL_CAN_Transmit(&hcan, 1);
-      //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     }
   }
 }
@@ -679,21 +721,24 @@ void setupInclinometer() {
   status = HAL_I2C_Mem_Write(&hi2c1, INCL_ADDR, 0x08, 1, txbuf, 1, 100);
 
   // Block for now if there is an error
-  while(status != HAL_OK) {
-    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
-    HAL_Delay(100);
+  if (status != HAL_OK) {
+    for (uint8_t i=0; i<10; i++) {
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+      HAL_Delay(100);
+    }
   }
-
   //Setup the tipover register for 70 degrees
   txbuf[0] = 0x18;
   status = HAL_I2C_Mem_Write(&hi2c1, INCL_ADDR, 0x07, 1, txbuf, 1, 100);
 
   // Block for now if there is an error
-  while(status != HAL_OK) {
-    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
-    HAL_Delay(500);
+  if (status != HAL_OK) {
+    for (uint8_t i=0; i<10; i++) {
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+      HAL_Delay(500);
+    }
   }
 
   //Allow the inclinometer time to warmup
@@ -748,6 +793,45 @@ uint16_t probeAddresses() {
     }
   }
   return 0xFFFF;
+}
+
+void setupEncoder() {
+
+}
+
+float readEncoder() {
+  uint8_t rxbuf[2];
+  HAL_StatusTypeDef status;
+
+  uint16_t encoder_val = 0;
+
+  //Get the upper 8 bits of the angle
+  status = HAL_I2C_Mem_Read(&hi2c1, MANG_ADDR, 0xFE, 1, rxbuf, 1, 100);
+  encoder_val = rxbuf[0]<<6;
+
+  if (status != HAL_OK) {
+    return -1000;
+  }
+
+  //Get the lower 6 bits of the angle
+  status = HAL_I2C_Mem_Read(&hi2c1, MANG_ADDR, 0xFF, 1, rxbuf, 1, 100);
+  encoder_val |= rxbuf[0];
+  if (status != HAL_OK) {
+    return -1000;
+  }
+
+  return encoder_val / 45.508; //Convert to degrees
+}
+
+void setEncoderZero(float angle) {
+  float newZero = angle * 45.508;
+  uint8_t top = ((uint16_t)newZero) >> 6;  //Upper 6 bits of zero pos (not really)
+  uint8_t btm = ((uint16_t)newZero) & 0x003F; //Bottom 8 bits (not really)
+
+  HAL_StatusTypeDef status;
+  status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x16, 1, &top, 1, 100);
+  status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x17, 1, &btm, 1, 100);
+
 }
 
 /**
