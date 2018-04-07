@@ -152,6 +152,8 @@ int main(void)
   uint32_t motor_pwm_val = 0;
   uint32_t motor_dir_val = 0;
 
+  // Allow time for the inclinometer to warm up (Will fail otherwise)
+  HAL_Delay(1000);
   setupInclinometer();
 
   HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
