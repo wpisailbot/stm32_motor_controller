@@ -138,7 +138,8 @@ int main(void)
   sensor_nexttime = 0;
   status_nexttime = 0;
 
-
+  uint32_t motor_pwm_val = 0;
+  uint32_t motor_dir_val = 0;
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -160,15 +161,40 @@ int main(void)
         uint8_t winchval = hcan.pRxMsg->Data[0];
         uint8_t rudderval = hcan.pRxMsg->Data[1];
         uint8_t ballastval = hcan.pRxMsg->Data[2];
-        //Conver winchval to useful units
-        //pwmWrte(winchval)
-        /*if (ballastval > 90) {
-          HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
-        } else {
-          HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
-        }*/
+
+        //Convert winchval to useful units
+        // period is 0x2000
+        if (ballastval-90 < 0) {
+          motor_pwm_val = (90-ballastval)*(0x2000/90);
+          motor_dir_val = 1;
+        } else{
+          motor_pwm_val = (ballastval-90)*(0x2000/90);
+          motor_dir_val = 2;
+        }
       }
     }
+
+
+    //Update the state of the motor
+    if (motor_dir_val == 1) {
+      //Go Forwards
+      HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_RESET);
+    } else if (motor_dir_val == 2) {
+      //Go Backwards
+      HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(LED_GPIO_PORT, LEDG_PIN, GPIO_PIN_RESET);
+    } else {
+      //Brake or Coast
+      HAL_GPIO_WritePin(GPIOB, MOTINB_PIN, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOB, MOTINA_PIN, GPIO_PIN_RESET);
+      setPWMValue(0);
+    }
+    setPWMValue(motor_pwm_val);
     
     // Software "timer" for sensor updates
     if (sensor_nexttime <= HAL_GetTick()) {
@@ -184,8 +210,8 @@ int main(void)
       myData.Data[1] = enc_val&0xff;
       myData.Data[0] = (enc_val>>8)&0xff;
       myData.Data[2] = count1++;
-      //HAL_CAN_Transmit(&hcan, 1);
-      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+      HAL_CAN_Transmit(&hcan, 1);
+      //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
     }
 
     // Software "timer" for status updates
@@ -195,7 +221,7 @@ int main(void)
       myData.ExtId = 0x14FF0315;
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
-      myData.DLC = 5;
+      myData.DLC = 6;
       /* Trigger an ADC read */
       uint16_t temp_val;
       uint16_t curr_val;
@@ -208,13 +234,18 @@ int main(void)
       curr_val = HAL_ADC_GetValue(&hadc);
       temp_val = HAL_ADC_GetValue(&hadc);
       HAL_ADC_Stop(&hadc);
+      //Send the Temp sensor value
       myData.Data[1] = temp_val & 0xff;
       myData.Data[0] = (temp_val>>8) & 0xff;
+      //Send the Current sensor value
       myData.Data[3] = curr_val & 0xff;
       myData.Data[2] = (curr_val>>8) & 0xff;
-      myData.Data[4] = count2++;
+      //Send the Motor Disabled status value
+      myData.Data[4] = (!HAL_GPIO_ReadPin(GPIOB, MOTENB_PIN)<<1) |
+                       (!HAL_GPIO_ReadPin(GPIOB, MOTENA_PIN));
+      myData.Data[5] = count2++;
       HAL_CAN_Transmit(&hcan, 1);
-      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
     }
   }
 }
