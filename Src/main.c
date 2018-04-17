@@ -158,8 +158,20 @@ int main(void)
   uint32_t motor_dir_val = 0;
 
   // Allow time for the inclinometer to warm up (Will fail otherwise)
+
+
+  for (uint8_t i=0; i<4; i++) {
+    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    HAL_Delay(100);
+  }
   HAL_Delay(1000);
   setupInclinometer();
+
+
+  myData.Data[0]=0xDE; myData.Data[1]=0xAD; myData.Data[2]=0xB0; myData.Data[3]=0x07; myData.Data[4]=0x02;
+  myData.ExtId = 0x14FF1234;
+  myData.DLC = 5;
+  HAL_CAN_Transmit(&hcan, 1);
 
   HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
 
@@ -275,6 +287,7 @@ int main(void)
 
       // Get the ballast angle
       float bal_ang = readEncoder();
+      float bal_angcpy = bal_ang;
 
       // Send data *10000 in radians
       // Inclinometer first  Not sure what the order of bits is yet
@@ -293,6 +306,16 @@ int main(void)
       myData.Data[2] = ((int16_t)bal_ang) & 0xFF;
       myData.Data[3] = (((int16_t)bal_ang) >> 8) & 0xFF;
       HAL_CAN_Transmit(&hcan, 1);
+
+      if (bal_angcpy < -900) {
+        // Send a CAN message that I2C is resetting
+        myData.Data[0]=0xDE; myData.Data[1]=0xAD; myData.Data[2]=0x12; myData.Data[3]=0xC2;
+        myData.ExtId = 0x14FF1234;
+        myData.DLC = 4;
+        HAL_CAN_Transmit(&hcan, 1);
+        // Reset I2C
+        MX_I2C1_Init();
+      }
     }
 
     // Software "timer" for status updates
@@ -819,7 +842,27 @@ float readEncoder() {
   encoder_val = rxbuf[0]<<6;
 
   if (status != HAL_OK) {
-    return -1000;
+    if (status == HAL_ERROR) {
+      if (hi2c1.ErrorCode == HAL_I2C_ERROR_AF) {
+        return -1000;
+      } else if (hi2c1.ErrorCode == HAL_I2C_ERROR_BERR) {
+        return -1010;
+      } else if (hi2c1.ErrorCode == HAL_I2C_ERROR_ARLO) {
+        return -1020;
+      } else if (hi2c1.ErrorCode == HAL_I2C_ERROR_OVR) {
+        return -1080;
+      } else if (hi2c1.ErrorCode == HAL_I2C_ERROR_TIMEOUT) {
+        return -1200;
+      } else if (hi2c1.ErrorCode == HAL_I2C_ERROR_SIZE) {
+        return -1400;
+      } else {
+        return -1600;
+      }
+    } else if (status == HAL_BUSY) {
+      return -2000;
+    } else if (status == HAL_TIMEOUT) {
+      return -3000;
+    }
   }
 
   //Get the lower 6 bits of the angle
