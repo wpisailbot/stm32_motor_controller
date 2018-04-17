@@ -13,7 +13,8 @@
 ######################################
 # target
 ######################################
-TARGET = stm32_motor_controller
+TARGET_BALLAST = stm32_ballast
+TARGET_WINCH  = stm32_winch
 
 
 ######################################
@@ -55,7 +56,6 @@ C_SOURCES =  \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_i2c_ex.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_flash.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_adc_ex.c \
-Src/main.c \
 Src/system_stm32f0xx.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_adc.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_cortex.c \
@@ -74,7 +74,7 @@ Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_i2c.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_flash_ex.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc_ex.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_dma.c \
-Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc.c  
+Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_rcc.c
 
 # ASM sources
 ASM_SOURCES =  \
@@ -163,8 +163,11 @@ LIBDIR =
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
 # default action: build all
-all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
+all: ballast winch 
 
+ballast: $(BUILD_DIR)/$(TARGET_BALLAST).elf $(BUILD_DIR)/$(TARGET_BALLAST).hex $(BUILD_DIR)/$(TARGET_BALLAST).bin
+
+winch: $(BUILD_DIR)/$(TARGET_WINCH).elf $(BUILD_DIR)/$(TARGET_WINCH).hex $(BUILD_DIR)/$(TARGET_WINCH).bin
 
 #######################################
 # build the application
@@ -176,14 +179,22 @@ vpath %.c $(sort $(dir $(C_SOURCES)))
 OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
 vpath %.s $(sort $(dir $(ASM_SOURCES)))
 
+BALLAST_OBJECTS = $(BUILD_DIR)/main-ballast.o
+
+WINCH_OBJECTS = $(BUILD_DIR)/main-winch.o
+
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR) 
 	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
 
 $(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
 	$(AS) -c $(CFLAGS) $< -o $@
 
-$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) Makefile
-	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
+$(BUILD_DIR)/$(TARGET_BALLAST).elf: $(OBJECTS) $(BALLAST_OBJECTS) Makefile
+	$(CC) $(OBJECTS) $(BALLAST_OBJECTS) $(LDFLAGS) -o $@
+	$(SZ) $@
+
+$(BUILD_DIR)/$(TARGET_WINCH).elf: $(OBJECTS) $(WINCH_OBJECTS) Makefile
+	$(CC) $(OBJECTS) $(WINCH_OBJECTS) $(LDFLAGS) -o $@
 	$(SZ) $@
 
 $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
@@ -195,11 +206,19 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir $@		
 
+my_dir/%.txt:
+	@echo $(@D)
+	@echo $(*F)
+	@echo hello world $(@D) $(@F)
+
 #######################################
 # upload
 #######################################
-upload:
-	st-flash write build/stm32_motor_controller.bin 0x08000000
+upload-ballast: ballast
+	st-flash write build/$(TARGET_BALLAST).bin 0x08000000
+
+upload-winch: winch
+	st-flash write build/$(TARGET_WINCH).bin 0x08000000
 
 #######################################
 # clean up
