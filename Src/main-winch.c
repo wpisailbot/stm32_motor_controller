@@ -157,11 +157,22 @@ int main(void)
   uint32_t motor_pwm_val = 0;
   uint32_t motor_dir_val = 0;
 
-  // Allow time for the inclinometer to warm up (Will fail otherwise)
+  // Blink to indicate that the controller just booted
+  for (uint8_t i=0; i<4; i++) {
+    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    HAL_Delay(100);
+  }
+
+  //Give some time for other stuff to come up?
   HAL_Delay(1000);
-  setupInclinometer();
 
   HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
+
+  //Send a message over can to indicate the controller just booted
+  myData.Data[0]=0xDE; myData.Data[1]=0xAD; myData.Data[2]=0xB0; myData.Data[3]=0x07; myData.Data[4]=0x01;
+  myData.ExtId = 0x14FF1234;
+  myData.DLC = 5;
+  HAL_CAN_Transmit(&hcan, 1);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -188,21 +199,21 @@ int main(void)
         //Convert winchval to useful units
 
         //if (90-winchval
-        /*if (winchval-90 > 0) {
+        if (winchval-90 > 0) {
           motor_pwm_val = (90-winchval)*(0x2000/90);
           motor_dir_val = 1;
         } else{
           motor_pwm_val = (winchval-90)*(0x2000/90);
           motor_dir_val = 2;
-        }*/
+        }
         // period is 0x2000
-        if (90-ballastval < 0) {
+        /*if (90-ballastval < 0) {
           motor_pwm_val = (90-ballastval)*(0x2000/90);
           motor_dir_val = 1;
         } else{
           motor_pwm_val = (ballastval-90)*(0x2000/90);
           motor_dir_val = 2;
-        }
+        }*/
       }
 
       // Set Moveable Ballast zero position
@@ -263,35 +274,12 @@ int main(void)
       } else if (enc_val > 0xFF) {
         enc_val = 0xFF;
       }
-      
+     
+      // "Analog Read" message 
       myData.ExtId = 0x14FF0115;
       myData.DLC = 3;
       myData.Data[0] = enc_val;
       myData.Data[2] = count1++;
-      //HAL_CAN_Transmit(&hcan, 1);
-
-      // Get the inclinometer value
-      float inc_val = readHeel();
-
-      // Get the ballast angle
-      float bal_ang = readEncoder();
-
-      // Send data *10000 in radians
-      // Inclinometer first  Not sure what the order of bits is yet
-      myData.ExtId = 0x14FF0515;
-      myData.DLC = 4;
-      // Convert to radians 
-      if (bal_ang > 180) {
-        bal_ang = bal_ang-360;
-      }
-      bal_ang = bal_ang*3.14159/180.0*10000;
-      // Dumb offset right now to get it centered on 0
-      inc_val = -inc_val;
-      inc_val = inc_val*3.14159/180.0*10000;
-      myData.Data[0] = ((int16_t)inc_val) & 0xFF;
-      myData.Data[1] = (((int16_t)inc_val) >> 8) & 0xFF;
-      myData.Data[2] = ((int16_t)bal_ang) & 0xFF;
-      myData.Data[3] = (((int16_t)bal_ang) >> 8) & 0xFF;
       HAL_CAN_Transmit(&hcan, 1);
     }
 
@@ -299,7 +287,8 @@ int main(void)
     if (status_nexttime <= HAL_GetTick()) {
       status_nexttime += STATUS_UPDATESTEP;
       myData.StdId = 0x00;
-      myData.ExtId = 0x14FF0315;
+      // "Debug SCAMP 2"
+      myData.ExtId = 0x14FF0415;
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
       myData.DLC = 6;
