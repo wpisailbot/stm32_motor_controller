@@ -157,7 +157,19 @@ int main(void)
   uint32_t motor_pwm_val = 0;
   uint32_t motor_dir_val = 0;
 
+  // Blink to indicate that the controller just booted
+  for (uint8_t i=0; i<4; i++) {
+    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+    HAL_Delay(100);
+  }
+
   HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
+
+  //Send a message over can to indicate the controller just booted
+  myData.Data[0]=0xDE; myData.Data[1]=0xAD; myData.Data[2]=0xB0; myData.Data[3]=0x07; myData.Data[4]=0x01;
+  myData.ExtId = 0x14FF1234;
+  myData.DLC = 5;
+  HAL_CAN_Transmit(&hcan, 1);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
