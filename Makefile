@@ -15,7 +15,7 @@
 ######################################
 TARGET_BALLAST = stm32_ballast
 TARGET_WINCH  = stm32_winch
-
+TARGET_SERVO = stm32_servo
 
 ######################################
 # building variables
@@ -163,11 +163,13 @@ LIBDIR =
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
 # default action: build all
-all: ballast winch 
+all: ballast winch servo
 
 ballast: $(BUILD_DIR)/$(TARGET_BALLAST).elf $(BUILD_DIR)/$(TARGET_BALLAST).hex $(BUILD_DIR)/$(TARGET_BALLAST).bin
 
 winch: $(BUILD_DIR)/$(TARGET_WINCH).elf $(BUILD_DIR)/$(TARGET_WINCH).hex $(BUILD_DIR)/$(TARGET_WINCH).bin
+
+servo: $(BUILD_DIR)/$(TARGET_SERVO).elf $(BUILD_DIR)/$(TARGET_SERVO).hex $(BUILD_DIR)/$(TARGET_SERVO).bin
 
 #######################################
 # build the application
@@ -183,6 +185,8 @@ BALLAST_OBJECTS = $(BUILD_DIR)/main-ballast.o
 
 WINCH_OBJECTS = $(BUILD_DIR)/main-winch.o
 
+SERVO_OBJECTS = $(BUILD_DIR)/main-servo.o
+
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR) 
 	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
 
@@ -195,6 +199,10 @@ $(BUILD_DIR)/$(TARGET_BALLAST).elf: $(OBJECTS) $(BALLAST_OBJECTS) Makefile
 
 $(BUILD_DIR)/$(TARGET_WINCH).elf: $(OBJECTS) $(WINCH_OBJECTS) Makefile
 	$(CC) $(OBJECTS) $(WINCH_OBJECTS) $(LDFLAGS) -o $@
+	$(SZ) $@
+
+$(BUILD_DIR)/$(TARGET_SERVO).elf: $(OBJECTS) $(SERVO_OBJECTS) Makefile
+	$(CC) $(OBJECTS) $(SERVO_OBJECTS) $(LDFLAGS) -o $@
 	$(SZ) $@
 
 $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
@@ -219,6 +227,9 @@ upload-ballast: ballast
 
 upload-winch: winch
 	st-flash write build/$(TARGET_WINCH).bin 0x08000000
+
+upload-servo: servo
+	st-flash write build/$(TARGET_SERVO).bin 0x08000000
 
 #######################################
 # clean up
