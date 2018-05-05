@@ -209,10 +209,10 @@ int main(void)
         }*/
         // period is 0x2000
         if (90-ballastval < 0) {
-          motor_pwm_val = (90-ballastval)*(0x2000/90);
+          motor_pwm_val = (ballastval - 90)*(0x2000/90);
           motor_dir_val = 1;
         } else{
-          motor_pwm_val = (ballastval-90)*(0x2000/90);
+          motor_pwm_val = (90 - ballastval)*(0x2000/90);
           motor_dir_val = 2;
         }
       }
@@ -225,7 +225,7 @@ int main(void)
         if (curr_ang >-1000) {
           setEncoderZero(curr_ang);
         }
-      
+
         for (int i=0; i<4; i++) {
           HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
           HAL_Delay(100);
@@ -254,7 +254,7 @@ int main(void)
       setPWMValue(0);
     }
     setPWMValue(motor_pwm_val);
-    
+
     // Software "timer" for sensor updates
     if (sensor_nexttime <= HAL_GetTick()) {
       //
@@ -262,7 +262,7 @@ int main(void)
       myData.StdId = 0x00;
       myData.IDE = CAN_ID_EXT;
       myData.RTR = CAN_RTR_DATA;
-      
+
       // Get the encoder value
       // 280 ticks/rev
       // approx 7 turns
@@ -275,7 +275,7 @@ int main(void)
       } else if (enc_val > 0xFF) {
         enc_val = 0xFF;
       }
-      
+
       myData.ExtId = 0x14FF0115;
       myData.DLC = 3;
       myData.Data[0] = enc_val;
@@ -293,7 +293,7 @@ int main(void)
       // Inclinometer first  Not sure what the order of bits is yet
       myData.ExtId = 0x14FF0515;
       myData.DLC = 4;
-      // Convert to radians 
+      // Convert to radians
       if (bal_ang > 180) {
         bal_ang = bal_ang-360;
       }
