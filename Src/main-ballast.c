@@ -92,6 +92,9 @@ void setupMagEncoder();
 float readEncoder();
 void setEncoderZero(float angle);
 
+/* Convenience function for timer */
+uint8_t timeEvent(uint32_t triggerTime);
+
 /* Defines for the board's LEDs */
 #define LEDG_PIN GPIO_PIN_1
 #define LEDR_PIN GPIO_PIN_0
@@ -167,6 +170,7 @@ int main(void)
   HAL_Delay(1000);
   setupInclinometer();
 
+  MX_CAN_Init();
 
   myData.Data[0]=0xDE; myData.Data[1]=0xAD; myData.Data[2]=0xB0; myData.Data[3]=0x07; myData.Data[4]=0x02;
   myData.ExtId = 0x14FF1234;
@@ -256,7 +260,7 @@ int main(void)
     setPWMValue(motor_pwm_val);
     
     // Software "timer" for sensor updates
-    if (sensor_nexttime <= HAL_GetTick()) {
+    if (timeEvent(sensor_nexttime)) {
       //
       sensor_nexttime += SENSOR_UPDATESTEP;
       myData.StdId = 0x00;
@@ -312,14 +316,23 @@ int main(void)
         myData.Data[0]=0xDE; myData.Data[1]=0xAD; myData.Data[2]=0x12; myData.Data[3]=0xC2;
         myData.ExtId = 0x14FF1234;
         myData.DLC = 4;
-        HAL_CAN_Transmit(&hcan, 1);
+        HAL_CAN_Transmit(&hcan, 100);
         // Reset I2C
         MX_I2C1_Init();
       }
     }
 
+    uint32_t curr_time = HAL_GetTick();
+    myData.ExtId = 0x14FF1235;
+    myData.DLC = 4;
+    myData.Data[0] = (curr_time>>24)&0xFF;
+    myData.Data[1] = (curr_time>>16)&0xFF;
+    myData.Data[2] = (curr_time>>8) &0xFF;
+    myData.Data[3] = curr_time & 0xFF;
+    HAL_CAN_Transmit(&hcan, 100);
+
     // Software "timer" for status updates
-    if (status_nexttime <= HAL_GetTick()) {
+    if (timeEvent(status_nexttime)) {
       status_nexttime += STATUS_UPDATESTEP;
       myData.StdId = 0x00;
       myData.ExtId = 0x14FF0315;
@@ -348,7 +361,7 @@ int main(void)
       myData.Data[4] = (!HAL_GPIO_ReadPin(GPIOB, MOTENB_PIN)<<1) |
                        (!HAL_GPIO_ReadPin(GPIOB, MOTENA_PIN));
       myData.Data[5] = count2++;
-      HAL_CAN_Transmit(&hcan, 1);
+      HAL_CAN_Transmit(&hcan, 100);
     }
   }
 }
@@ -492,7 +505,8 @@ static void MX_CAN_Init(void)
   hcan.Init.TTCM = DISABLE;
   hcan.Init.ABOM = DISABLE;
   hcan.Init.AWUM = DISABLE;
-  hcan.Init.NART = ENABLE;
+  //hcan.Init.NART = ENABLE;
+  hcan.Init.NART = DISABLE;
   hcan.Init.RFLM = DISABLE;
   hcan.Init.TXFP = DISABLE;
   if (HAL_CAN_Init(&hcan) != HAL_OK)
@@ -892,6 +906,15 @@ void setEncoderZero(float angle) {
   status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x16, 1, &top, 1, 100);
   status = HAL_I2C_Mem_Write(&hi2c1, MANG_ADDR, 0x17, 1, &btm, 1, 100);
 
+}
+
+// Gets around the issue of timer overflows
+uint8_t timeEvent(uint32_t triggerTime) {
+  uint32_t curr_time = HAL_GetTick();
+  if (triggerTime <= curr_time) {
+    return 1;
+  }
+  return (triggerTime - curr_time) > ((0xFFFFFFFF/4)*3);
 }
 
 /**
