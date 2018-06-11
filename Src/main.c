@@ -264,7 +264,7 @@ int main(void)
       // approx 7 turns
       int16_t enc_val = __HAL_TIM_GET_COUNTER(&htim3);
 
-      enc_val = enc_val>>4;
+      enc_val = enc_val>>5;
       enc_val += 127;
       if(enc_val < 0) {
         enc_val = 0x00;
