@@ -93,7 +93,7 @@ float readEncoder();
 void setEncoderZero(float angle);
 
 /* Defines for the board's LEDs */
-#define LEDG_PIN GPIO_PIN_1
+#define LEDG_PIN GPIO_PIN_3
 #define LEDR_PIN GPIO_PIN_0
 #define LED_GPIO_PORT GPIOB
 
@@ -158,18 +158,18 @@ int main(void)
   uint32_t motor_dir_val = 0;
 
   // Blink to indicate that the controller just booted
-  HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
-  for (uint8_t i=0; i<2000; i++) {
+  //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+  for (uint8_t i=0; i<4; i++) {
     HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
-    HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+    //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
     HAL_Delay(1000);
   }
-  HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
+  //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
 
   //Give some time for other stuff to come up?
   HAL_Delay(1000);
 
-  HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(LED_GPIO_PORT, LEDR_PIN, GPIO_PIN_SET);
 
   //Send a message over can to indicate the controller just booted
   myData.Data[0]=0xDE; myData.Data[1]=0xAD; myData.Data[2]=0xB0; myData.Data[3]=0x07; myData.Data[4]=0x01;
@@ -283,7 +283,9 @@ int main(void)
       myData.DLC = 3;
       myData.Data[0] = enc_val;
       myData.Data[2] = count1++;
-      //HAL_CAN_Transmit(&hcan, 1);
+      HAL_CAN_Transmit(&hcan, 1);
+      HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDG_PIN);
+      //HAL_GPIO_TogglePin(LED_GPIO_PORT, LEDR_PIN);
     }
 
     // Software "timer" for status updates
@@ -654,20 +656,22 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4|GPIO_PIN_7, GPIO_PIN_RESET);
+  //HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PB0 PB1 PB4 PB7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4|GPIO_PIN_7;
+  //GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_4|GPIO_PIN_7;
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB5 PB6 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6;
+  /*GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);*/
 
 }
 
